@@ -8,12 +8,12 @@
 #include <time.h>
 #include "SLOZENI_TIPOVI.h"
 
-void dodajOpremu(void); // CREATE
-MotoOprema* dohvatiOpremu(int* brojOpreme);// READ
+void dodajOpremu(void);
+MotoOprema* dohvatiOpremu(int* brojOpreme);
 void ispisiSvuOpremu(void);
-void azurirajOpremu(MotoOprema* oprema); // UPDATE
-void obriöiOpremu(MotoOprema* oprema); // DELETE
-// Pitati za insert
+void azurirajOpremu(MotoOprema* oprema); 
+void obri≈°iOpremu(MotoOprema* oprema); 
+
 
 MotoOprema* nadjiOpremuPoID(int id);
 
