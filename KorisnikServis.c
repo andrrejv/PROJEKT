@@ -174,21 +174,6 @@ void obrisiKorisnika(Korisnik korisnikZaBrisanje) {
 
 
 
-char* dohvatiString(char* ispisnaVrijednost) {
-    char buffer[1024];
-    printf("%s", ispisnaVrijednost);
-    fgets(buffer, sizeof(buffer), stdin);
-
-    buffer[strcspn(buffer, "\n")] = 0;
-
-    char* ime = malloc(strlen(buffer) + 1);
-    if (!ime) {
-        perror("Greška pri alokaciji memorije");
-        exit(1);
-    }
-    strcpy(ime, buffer);
-    return ime;
-}
 
 char* upisiIme(void) {
     char buffer[1024];
