@@ -9,6 +9,7 @@ void ispisiSveKorisnike(void);
 Korisnik* dohvatiSveKorisnike(int* brojKorisnika);
 void obrisiKorisnika(Korisnik korisnik);
 
+extern int brojKorisnika;
 char* upisiIme(void);
 char* upisiAdresu(void);
 int upisiBroj(void);
