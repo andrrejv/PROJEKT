@@ -3,10 +3,10 @@
 
 #include "SLOZENI_TIPOVI.h"
 
-void dodajNarudzbu(void); // CREATE
+void dodajNarudzbu(void); 
 void ispisiSveNarudzbe(void);
-Narudzba* dohatiSveNarudzbe(int* brojNarudzbi); // READ
-void obrisiNarudzbu(Narudzba narduzba); // DELETE
+Narudzba* dohatiSveNarudzbe(int* brojNarudzbi); 
+void obrisiNarudzbu(Narudzba narduzba); 
 
 MotoOprema odaberiOpremu(MotoOprema* sveOpreme, int brojOpreme);
 int odaberiKorisnika(Korisnik* sviKorisnici, int brojKorisnika);
