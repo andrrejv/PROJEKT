@@ -41,7 +41,7 @@ void dodajKorisnika(void) {
 }
 
 void ispisiSveKorisnike(void) {
-    int brojKorisnika;
+    int brojKorisnika = 0;
     Korisnik* korisnici = dohvatiSveKorisnike(&brojKorisnika);
 
     if (!korisnici || brojKorisnika == 0) {
