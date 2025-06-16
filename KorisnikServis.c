@@ -1,4 +1,4 @@
-﻿#define _CRT_SECURE_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
 
 #include "SLOZENI_TIPOVI.h"
 #include "KorisnikServis.h"
@@ -17,38 +17,84 @@ void dodajKorisnika(void) {
 
     Korisnik korisnik;
 
-   
+    
     char* imeTemp = upisiIme();
+    if (!imeTemp) {
+        printf("Greska pri unosu imena.\n");
+        fclose(f);
+        return;
+    }
+
     char* adresaTemp = upisiAdresu();
+    if (!adresaTemp) {
+        printf("Greska pri unosu adrese.\n");
+        free(imeTemp);
+        fclose(f);
+        return;
+    }
+
     char* emailTemp = upisiEmail();
+    if (!emailTemp) {
+        printf("Greska pri unosu email-a.\n");
+        free(imeTemp);
+        free(adresaTemp);
+        fclose(f);
+        return;
+    }
+
+    int broj = upisiBroj();
+    if (broj == 404) {
+        printf("Greska pri unosu broja.\n");
+        free(imeTemp);
+        free(adresaTemp);
+        free(emailTemp);
+        fclose(f);
+        return;
+    }
+
+    
+    if (strlen(imeTemp) >= sizeof(korisnik.ime) ||
+        strlen(adresaTemp) >= sizeof(korisnik.adresa) ||
+        strlen(emailTemp) >= sizeof(korisnik.email)) {
+        printf("Jedan od unosa je predugacak.\n");
+        free(imeTemp);
+        free(adresaTemp);
+        free(emailTemp);
+        fclose(f);
+        return;
+    }
 
     
     strcpy(korisnik.ime, imeTemp);
     strcpy(korisnik.adresa, adresaTemp);
     strcpy(korisnik.email, emailTemp);
-
-    korisnik.broj = upisiBroj();
+    korisnik.broj = broj;
 
     
-    fprintf(f, "%s, %d, %s, %s\n", korisnik.ime, korisnik.broj, korisnik.adresa, korisnik.email);
+    if (fprintf(f, "%s, %d, %s, %s\n", korisnik.ime, korisnik.broj, korisnik.adresa, korisnik.email) < 0) {
+        printf("Greska pri pisanju u datoteku.\n");
+    }
+    else {
+        printf("Korisnik je uspjesno dodat.\n");
+    }
 
     
     free(imeTemp);
     free(adresaTemp);
     free(emailTemp);
-
     fclose(f);
 }
 
-void ispisiSveKorisnike(void) {
-    int brojKorisnika = 0;
+int ispisiSveKorisnike(bool saIzborom) {
+    int brojKorisnika;
     Korisnik* korisnici = dohvatiSveKorisnike(&brojKorisnika);
 
     if (!korisnici || brojKorisnika == 0) {
         printf("Nema korisnika za ispis.\n");
-        return;
+        return -1;
     }
 
+    
     for (int i = 0; i < brojKorisnika; i++) {
         Korisnik trenutniKorisnik = korisnici[i];
         printf("Korisnik #%d\n", i);
@@ -59,14 +105,43 @@ void ispisiSveKorisnike(void) {
         printf("-----------------------------\n");
     }
 
-    free(korisnici);
+    
+    if (!saIzborom) {
+        free(korisnici);
+        return -1;
+    }
+
+    
+    printf("Izaberite korisnika (0-%d) ili %d za izlaz: ", brojKorisnika - 1, brojKorisnika);
+
+    int izbor;
+    scanf("%d", &izbor);
+
+    if (izbor >= 0 && izbor < brojKorisnika) {
+        
+        free(korisnici);
+        return izbor;
+
+    }
+    else if (izbor == brojKorisnika) {
+        
+        printf("Izlaz bez izbora.\n");
+        free(korisnici);
+        return -1;
+    }
+    else {
+        
+        printf("Neispravna opcija.\n");
+        free(korisnici);
+        return -1;
+    }
 }
 
 
 Korisnik* dohvatiSveKorisnike(int* brojKorisnika) {
     FILE* f = fopen(KORISNIKDATOTEKA, "r");
     if (!f) {
-        perror("Greška pri otvaranju datoteke");
+        perror("Greska pri otvaranju datoteke");
         *brojKorisnika = 0;
         return NULL;
     }
@@ -75,7 +150,7 @@ Korisnik* dohvatiSveKorisnike(int* brojKorisnika) {
     int broj = 0;
     Korisnik* lista = malloc(kapacitet * sizeof(Korisnik));
     if (!lista) {
-        perror("Greška pri alokaciji memorije");
+        perror("Greska pri alokaciji memorije");
         fclose(f);
         *brojKorisnika = 0;
         return NULL;
@@ -95,7 +170,7 @@ Korisnik* dohvatiSveKorisnike(int* brojKorisnika) {
             kapacitet *= 2;
             Korisnik* temp = realloc(lista, kapacitet * sizeof(Korisnik));
             if (!temp) {
-                perror("Greška pri realokaciji memorije");
+                perror("Greska pri realokaciji memorije");
                 free(lista);
                 fclose(f);
                 *brojKorisnika = 0;
@@ -127,29 +202,49 @@ Korisnik* dohvatiSveKorisnike(int* brojKorisnika) {
 }
 
 
-void obrisiKorisnika(Korisnik korisnikZaBrisanje) {
+void obrisiKorisnika(void) {
     int brojKorisnika;
     Korisnik* sviKorisnici = dohvatiSveKorisnike(&brojKorisnika);
+
     if (!sviKorisnici || brojKorisnika == 0) {
         printf("Nema korisnika za brisanje.\n");
         return;
     }
 
+    int idOdabranoKorisnika = ispisiSveKorisnike(true);
+
+   
+    if (idOdabranoKorisnika < 0 || idOdabranoKorisnika >= brojKorisnika) {
+        printf("Nijedan korisnik nije odabran za brisanje.\n");
+        free(sviKorisnici);
+        return;
+    }
+
+    
+    Korisnik korisnikZaBrisanje = sviKorisnici[idOdabranoKorisnika];
+
+    printf("Potvrda brisanja korisnika: %s\n", korisnikZaBrisanje.ime);
+    printf("Da li ste sigurni? (d/n): ");
+
+    char potvrda;
+    scanf(" %c", &potvrda);
+
+    if (potvrda != 'd' && potvrda != 'D') {
+        printf("Brisanje otkazano.\n");
+        free(sviKorisnici);
+        return;
+    }
+
     FILE* f = fopen(KORISNIKDATOTEKA, "w"); 
     if (!f) {
-        perror("Greška pri otvaranju datoteke za pisanje");
+        perror("Greska pri otvaranju datoteke za pisanje");
         free(sviKorisnici);
         return;
     }
 
     int obrisan = 0;
     for (int i = 0; i < brojKorisnika; i++) {
-        if (
-            strcmp(sviKorisnici[i].ime, korisnikZaBrisanje.ime) == 0 &&
-            sviKorisnici[i].broj == korisnikZaBrisanje.broj &&
-            strcmp(sviKorisnici[i].adresa, korisnikZaBrisanje.adresa) == 0 &&
-            strcmp(sviKorisnici[i].email, korisnikZaBrisanje.email) == 0
-            ) {
+        if (i == idOdabranoKorisnika) {
             obrisan = 1; 
             continue;
         }
@@ -165,63 +260,77 @@ void obrisiKorisnika(Korisnik korisnikZaBrisanje) {
     free(sviKorisnici);
 
     if (obrisan) {
-        printf("Korisnik je uspješno obrisan.\n");
+        printf("Korisnik '%s' je uspjesno obrisan.\n", korisnikZaBrisanje.ime);
     }
     else {
-        printf("Korisnik nije pronađen.\n");
+        printf("Greska pri brisanju korisnika.\n");
     }
 }
 
-
-
-
 char* upisiIme(void) {
     char buffer[1024];
-    printf("Unesite ime: ");
-    fgets(buffer, sizeof(buffer), stdin);
 
+    printf("Unesite ime: ");
+
+    
+    if (!fgets(buffer, sizeof(buffer), stdin)) {
+        return NULL;  
+    }
+
+   
     buffer[strcspn(buffer, "\n")] = 0;
 
+   
     char* ime = malloc(strlen(buffer) + 1);
     if (!ime) {
-        perror("Greška pri alokaciji memorije");
-        exit(1);
-    }
+        return NULL;  
+
     strcpy(ime, buffer);
     return ime;
 }
 
 char* upisiAdresu(void) {
     char buffer[1024];
-    printf("Unesite adresu: ");
-    fgets(buffer, sizeof(buffer), stdin);
 
+    printf("Unesite adresu: ");
+
+   
+    if (!fgets(buffer, sizeof(buffer), stdin)) {
+        return NULL;  
+    }
+
+    
     buffer[strcspn(buffer, "\n")] = 0;
 
+    
     char* adresa = malloc(strlen(buffer) + 1);
     if (!adresa) {
-        perror("Greška pri alokaciji memorije");
-        exit(1);
+        return NULL;  
     }
+
     strcpy(adresa, buffer);
     return adresa;
 }
 
 int upisiBroj(void) {
     char buffer[1024];
+
     printf("Unesite broj: ");
+
+    
     if (!fgets(buffer, sizeof(buffer), stdin)) {
-        perror("Greška pri čitanju unosa");
-        exit(1);
+        return 404;  
     }
 
+    
     buffer[strcspn(buffer, "\n")] = 0;
 
     char* endptr;
     int broj = strtol(buffer, &endptr, 10);
+
+    
     if (endptr == buffer || *endptr != '\0') {
-        fprintf(stderr, "Neispravan broj.\n");
-        exit(1);
+        return 404;  
     }
 
     return broj;
@@ -230,16 +339,23 @@ int upisiBroj(void) {
 
 char* upisiEmail(void) {
     char buffer[1024];
-    printf("Unesite email: ");
-    fgets(buffer, sizeof(buffer), stdin);
 
+    printf("Unesite email: ");
+
+    
+    if (!fgets(buffer, sizeof(buffer), stdin)) {
+        return NULL;  
+    }
+
+    
     buffer[strcspn(buffer, "\n")] = 0;
 
+    
     char* email = malloc(strlen(buffer) + 1);
     if (!email) {
-        perror("Greška pri alokaciji memorije");
-        exit(1);
+        return NULL;  
     }
+
     strcpy(email, buffer);
     return email;
 }
