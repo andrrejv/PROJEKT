@@ -1,3 +1,6 @@
+#define _CRT_SECURE_NO_WARNINGS
+
+
 #ifndef MOTO_OPREMA_H
 #define MOTO_OPREMA_H
 
@@ -8,9 +11,9 @@
 #include <time.h>
 #include "SLOZENI_TIPOVI.h"
 
-void dodajOpremu(void);
+void dodajOpremu(void); 
 MotoOprema* dohvatiOpremu(int* brojOpreme);
-void ispisiSvuOpremu(void);
+int ispisiSvuOpremu(bool saIzborom);
 void azurirajOpremu(MotoOprema* oprema); 
 void obrišiOpremu(MotoOprema* oprema); 
 
@@ -21,6 +24,7 @@ MotoOprema* nadjiOpremuPoID(int id);
 MotoOprema* dohvatiPoKategoriji(Kategorija kategorija);
 MotoOprema* dohvatiPoVelicini(Velicina velicina);
 MotoOprema* dohvatiPoStanju(Stanje stanje);
+MotoOprema* pronadjiSvuOpremuPoBrendu(char* trazeniBrend, int* brojPronadjenih);
 
 void sortirajOpremuPoCijeni(void);
 void pretraziOpremuPoID(void);
