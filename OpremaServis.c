@@ -1,371 +1,373 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include "MOTO_OPREMA.h"
+#include "NARUDZBE.h"
+#include "KorisnikServis.h"
 
 static const char* DATOTEKA = "oprema.txt";
 
-void dodajOpremu(void) {
-    FILE* f = fopen(DATOTEKA, "a");
-    if (!f) {
-        perror("Greska pri otvaranju opreme datoteke");
+int generate_id(void) {
+    return (int)time(NULL);
+}
+
+static inline void clearInputBuffer(void) {
+    int c;
+    while ((c = getchar()) != '\n' && c != EOF);
+}
+
+MotoOprema* nadjiOpremuPoID(int id) {
+    FILE* f = fopen(DATOTEKA, "rb");
+    if (!f) return NULL;
+
+    MotoOprema* o = malloc(sizeof(MotoOprema));
+    while (fread(o, sizeof(MotoOprema), 1, f)) {
+        if (o->id == id) {
+            fclose(f);
+            return o;
+        }
+    }
+    fclose(f);
+    free(o);
+    return NULL;
+}
+
+int compareCijena(const void* a, const void* b) {
+    const MotoOprema* o1 = (const MotoOprema*)a;
+    const MotoOprema* o2 = (const MotoOprema*)b;
+    return (o1->cijena > o2->cijena) - (o1->cijena < o2->cijena);
+}
+
+
+void rekurzivniIspisOpreme(MotoOprema* niz, int indeks, int broj) {
+    if (indeks >= broj) return;
+    printf("%-3d %-15s %-12s %-10s €%.2f\n",
+        indeks + 1,
+        niz[indeks].brand,
+        mapirajKategoriju(niz[indeks].kategorija),
+        mapirajVelicinu(niz[indeks].velicina),
+        niz[indeks].cijena);
+    rekurzivniIspisOpreme(niz, indeks + 1, broj);  
+}
+
+void sortirajOpremuPoCijeni(void) {
+    int broj = 0;
+    MotoOprema* niz = dohvatiOpremu(&broj);
+
+    if (!niz || broj == 0) {
+        printf("Nema opreme za prikaz.\n");
         return;
     }
 
-    MotoOprema oprema;
-    oprema.id = generate_id();
-    oprema.kategorija = odaberiKategoriju();
-    oprema.velicina = odaberiVelicinu();
-    oprema.stanje = odaberiStanje();
+    qsort(niz, broj, sizeof(MotoOprema), compareCijena);
 
-    printf("Unesite cijenu opreme: ");
-    while (scanf("%f", &oprema.cijena) != 1) {
-        printf("Pogrešan unos. Pokušajte ponovo: ");
-        int c;
-        while ((c = getchar()) != '\n' && c != EOF) {}
-    }
+    printf("\n========== OPREMA SORTIRANA PO CIJENI ==========\n");
+    printf("%-3s %-15s %-12s %-10s %-10s\n",
+        "#", "BRAND", "KATEGORIJA", "VELICINA", "CIJENA");
+    printf("------------------------------------------------\n");
 
-    
-    int c;
-    while ((c = getchar()) != '\n' && c != EOF) {}
+    rekurzivniIspisOpreme(niz, 0, broj);  
 
-    printf("Unesite brand opreme:\n");
-    scanf("%s", oprema.brand);
-    fprintf(f, "%d,%s,%d,%.2f,%d,%d\n",
-        oprema.id,
-        oprema.brand,
-        oprema.velicina,   
-        oprema.cijena,
-        oprema.stanje,
-        oprema.kategorija);
-    fclose(f);
+    printf("================================================\n");
+    printf("Ukupno: %d stavki\n", broj);
+
+    free(niz);
 }
 
-Velicina odaberiVelicinu(void) {
-    int odabranaVelicinaKaoInt = 0;
+void pretraziOpremuPoBredu() {
+    char trazeniBrend[30];
+    int brojPronadjenih;
 
-    while (1) {
-        printf("Odaberite Velicinu: \n");
-        printf("1. XS\n");
-        printf("2. S\n");
-        printf("3. M\n");
-        printf("4. L\n");
-        printf("5. XL\n");
-        printf("6. XXL\n");
-        printf("Vas izbor: ");
+    
+    printf("Unesite naziv brenda koji tražite: ");
+    fflush(stdout);
 
-        if (scanf("%d", &odabranaVelicinaKaoInt) != 1) {
-            printf("Nevažeći unos! Molimo unesite broj.\n\n");
-            
-            int c;
-            while ((c = getchar()) != '\n' && c != EOF);
-            continue;
-        }
-
-        if (odabranaVelicinaKaoInt >= 1 && odabranaVelicinaKaoInt <= 6) {
-            return (Velicina)(odabranaVelicinaKaoInt - 1);
-        }
-        else {
-            printf("Nevažeća velicina! Molimo odaberite broj između 1 i 6.\n\n");
-        }
-    }
-}
-
-int porediBrandove(const void* a, const void* b) {
-    const MotoOprema* oprema1 = (const MotoOprema*)a;
-    const MotoOprema* oprema2 = (const MotoOprema*)b;
-
-    return strcmp(oprema1->brand, oprema2->brand);
-}
-
-int porediBrandoveZaSortiranje(const void* a, const void* b) {
-    const MotoOprema* oprema1 = (const MotoOprema*)a;
-    const MotoOprema* oprema2 = (const MotoOprema*)b;
-
-    return strcmp(oprema1->brand, oprema2->brand);
-}
-
-MotoOprema* pronadjiSvuOpremuPoBrendu(char* trazeniBrend, int* brojPronadjenih) {
-    if (!trazeniBrend || !brojPronadjenih) {
-        if (brojPronadjenih) *brojPronadjenih = 0;
-        return NULL;
+    if (!fgets(trazeniBrend, sizeof(trazeniBrend), stdin)) {
+        printf("Greska pri ucitavanju unosa\n");
+        return;
     }
 
     
-    int ukupnoBrojOpreme;
-    MotoOprema* lista = dohvatiOpremu(&ukupnoBrojOpreme);
+    trazeniBrend[strcspn(trazeniBrend, "\n")] = 0;
 
-    if (!lista || ukupnoBrojOpreme <= 0) {
-        *brojPronadjenih = 0;
-        return NULL;
+    
+    if (strlen(trazeniBrend) == 0) {
+        printf("Niste unjeli naziv brenda\n");
+        return;
     }
 
-    
-    qsort(lista, ukupnoBrojOpreme, sizeof(MotoOprema), porediBrandoveZaSortiranje);
+    printf("Trazim opremu brenda: '%s'...\n", trazeniBrend);
 
-    
-    MotoOprema kljuc;
-    strncpy(kljuc.brand, trazeniBrend, sizeof(kljuc.brand) - 1);
-    kljuc.brand[sizeof(kljuc.brand) - 1] = '\0';
+    MotoOprema* rezultati = pronadjiSvuOpremuPoBrendu(trazeniBrend, &brojPronadjenih);
 
-    MotoOprema* prvi = (MotoOprema*)bsearch(&kljuc, lista, ukupnoBrojOpreme,
-        sizeof(MotoOprema), porediBrandove);
-
-    if (!prvi) {
-        free(lista); 
-        *brojPronadjenih = 0;
-        return NULL;
-    }
-
-    
-    int indeksPrvog = prvi - lista;
-    int pocetni = indeksPrvog;
-    int krajnji = indeksPrvog;
-
-    
-    while (pocetni > 0 && strcmp(lista[pocetni - 1].brand, trazeniBrend) == 0) {
-        pocetni--;
-    }
-
-    
-    while (krajnji < ukupnoBrojOpreme - 1 && strcmp(lista[krajnji + 1].brand, trazeniBrend) == 0) {
-        krajnji++;
-    }
-
-    
-    *brojPronadjenih = krajnji - pocetni + 1;
-
-    
-    MotoOprema* rezultati = malloc(*brojPronadjenih * sizeof(MotoOprema));
-    if (!rezultati) {
-        free(lista);
-        *brojPronadjenih = 0;
-        return NULL;
-    }
-
-    
-    for (int i = 0; i < *brojPronadjenih; i++) {
-        rezultati[i] = lista[pocetni + i];
-    }
-
-    
-    free(lista);
-
-    return rezultati;
-}
-
-Stanje odaberiStanje(void) {
-    int odabranoStanjeKaoInt = 0;
-
-    while (1) {
-        printf("Odaberite Stanje: \n");
-        printf("1. Novo\n");
-        printf("2. Polovno\n");
-        printf("Vas izbor: ");
-
-        if (scanf("%d", &odabranoStanjeKaoInt) != 1) {
-            printf("Nevažeći unos! Molimo unesite broj.\n\n");
-            
-            int c;
-            while ((c = getchar()) != '\n' && c != EOF);
-            continue;
+    if (rezultati && brojPronadjenih > 0) {
+        printf("\nPronadjeno %d stavki brenda '%s':\n", brojPronadjenih, trazeniBrend);
+        printf("----------------------------------------\n");
+        for (int i = 0; i < brojPronadjenih; i++) {
+            printf("%d. ID=%d, Brand=%s, Cijena=%.2f\n",
+                i + 1, rezultati[i].id, rezultati[i].brand, rezultati[i].cijena);
         }
-
-        if (odabranoStanjeKaoInt >= 1 && odabranoStanjeKaoInt <= 2) {
-            return (Stanje)(odabranoStanjeKaoInt - 1);
-        }
-        else {
-            printf("Nevažeće stanje! Molimo odaberite broj između 1 i 2.\n\n");
-        }
-    }
-}
-
-Kategorija odaberiKategoriju(void) {
-    int odabraniBroj = 0;
-
-    while (1) {
-        printf("Odaberite Kategoriju: \n");
-        printf("1. Kaciga\n");
-        printf("2. Jakna\n");
-        printf("3. Hlace\n");
-        printf("4. Rukavice\n");
-        printf("Vas izbor: ");
-
-        if (scanf("%d", &odabraniBroj) != 1) {
-            printf("Nevažeći unos! Molimo unesite broj.\n\n");
-            
-            int c;
-            while ((c = getchar()) != '\n' && c != EOF);
-            continue;
-        }
-
-        if (odabraniBroj >= 1 && odabraniBroj <= 4) {
-            return (Kategorija)(odabraniBroj - 1);
-        }
-        else {
-            printf("Nevažeća kategorija! Molimo odaberite broj između 1 i 4.\n\n");
-        }
-    }
-}
-
-MotoOprema* dohvatiOpremu(int* brojOpreme) {
-    FILE* f = fopen(DATOTEKA, "r");
-    if (!f) {
-        perror("Greška pri otvaranju datoteke");
-        *brojOpreme = 0;
-        return NULL;
-    }
-
-    int capacity = 10;
-    int count = 0;
-    MotoOprema* lista = malloc(capacity * sizeof(MotoOprema));
-    if (!lista) {
-        fclose(f);
-        *brojOpreme = 0;
-        return NULL;
-    }
-
-    while (1) {
-        MotoOprema temp;
-        int velicinaInt, stanjeInt, kategorijaInt;
-
-        int res = fscanf(f, "%d,%29[^,],%d,%f,%d,%d\n",
-            &temp.id,
-            temp.brand,
-            &velicinaInt,
-            &temp.cijena,
-            &stanjeInt,
-            &kategorijaInt);
-        if (res != 6) break;
-
-        
-        temp.velicina = (Velicina)velicinaInt;
-        temp.stanje = (Stanje)stanjeInt;
-        temp.kategorija = (Kategorija)kategorijaInt;
-
-        if (count == capacity) {
-            capacity *= 2;
-            MotoOprema* tempList = realloc(lista, capacity * sizeof(MotoOprema));
-            if (!tempList) {
-                free(lista);
-                fclose(f);
-                *brojOpreme = 0;
-                return NULL;
-            }
-            lista = tempList;
-        }
-
-        lista[count++] = temp;
-    }
-
-    fclose(f);
-
-    if (count < capacity) {
-        MotoOprema* tempList = realloc(lista, count * sizeof(MotoOprema));
-        if (tempList) lista = tempList;
-    }
-
-    *brojOpreme = count;
-
-    return lista;
-}
-
-int ispisiSvuOpremu(bool saIzborom) {
-    int brojOpreme;
-    MotoOprema* oprema = dohvatiOpremu(&brojOpreme);
-
-    if (!oprema || brojOpreme == 0) {
-        printf("Nema opreme za prikaz\n");
-        return -1;
-    }
-
-    printf("\n=== SVI OPREMA ===\n");
-
-    for (int i = 0; i < brojOpreme; i++) {
-        printf("\nOprema #%d\n", i + 1);
-        printf("Brand: %s (ID: %d)\n", oprema[i].brand, oprema[i].id);
-        printf("Kategorija: %s\n", mapirajKategoriju(oprema[i].kategorija));
-        printf("Velicina: %s\n", mapirajVelicinu(oprema[i].velicina));
-        printf("Cijena: %.2f EUR\n", oprema[i].cijena);
-        printf("Stanje: %s\n", mapirajStanje(oprema[i].stanje));
-        printf("---\n");
-    }
-
-    printf("Ukupno stavki: %d\n", brojOpreme);
-
-    if (!saIzborom) {
-        free(oprema);
-        return -1;
-    }
-
-    printf("\nIzaberite opremu (1-%d) ili 0 za izlaz: ", brojOpreme);
-
-    int izbor;
-    if (scanf("%d", &izbor) != 1) {
-        printf("Neispravna opcija!\n");
-        int c;
-        while ((c = getchar()) != '\n' && c != EOF);
-        free(oprema);
-        return -1;
-    }
-
-    if (izbor >= 1 && izbor <= brojOpreme) {
-        printf("Odabrana oprema #%d\n", izbor);
-        free(oprema);
-        return izbor - 1;
-    }
-    else if (izbor == 0) {
-        printf("Izlaz bez izbora.\n");
-        free(oprema);
-        return -1;
+        printf("----------------------------------------\n");
+        free(rezultati); 
     }
     else {
-        printf("Neispravna opcija '%d'! Molimo odaberite broj između 0 i %d.\n", izbor, brojOpreme);
-        free(oprema);
-        return -1;
+        printf("Oprema brenda '%s' nije pronađena\n", trazeniBrend);
     }
 }
 
-const char* mapirajVelicinu(Velicina velicina) {
-    switch (velicina) {
-    case XS:
-        return "XS";
-    case S:
-        return "S";
-    case M:
-        return "M";
-    case L:
-        return "L";
-    case XL:
-        return "XL";
-    case XXL:
-        return "XXL";
-    default:
-        return "M";
-    }
+MotoOprema* nizGlobal = NULL;
+int brojGlobal = 0;
+
+int compareID(const void* a, const void* b) {
+    const MotoOprema* o1 = (const MotoOprema*)a;
+    const MotoOprema* o2 = (const MotoOprema*)b;
+    return o1->id - o2->id;
 }
 
-const char* mapirajStanje(Stanje stanje) {
-    switch (stanje) {
-    case NOVO:
-        return "Novo";
-    case POLOVNO:
-        return "Koristeno";
-    default:
-        return "NaN";
-    }
+void upravljajNarduzbama(void) {
+    int izbor;
+    do {
+        printf("\n");
+        printf("---------------------------------------\n");
+        printf("        UPRAVLJANJE NARUDZBAMA         \n");
+        printf("---------------------------------------\n");
+        printf("\n");
+        printf("  1 -> Dodaj Narudzbu\n");
+        printf("  2 -> Ispisi sve narudzbe\n");
+        printf("  3 -> Obrisi Narudzbu\n");
+        printf("\n");
+        printf("  0 -> Izlaz\n");
+        printf("\n");
+        printf("---------------------------------------\n");
+        printf("Izbor: ");
+
+        if (scanf("%d", &izbor) != 1) {
+            printf(" Neispravna opcija\n");
+            clearInputBuffer();
+            continue;
+        }
+
+        switch (izbor) {
+        case 1:
+            clearInputBuffer();
+            printf("\n Dodavanje narudzbe...\n");
+            dodajNarudzbu();
+            printf("\n[Enter za nastavak]");
+            getchar();
+            break;
+
+        case 2:
+            clearInputBuffer();
+            printf("\n Prikaz narudzbi...\n");
+            ispisiSveNarudzbe(false);
+            printf("\n[Enter za nastavak]");
+            getchar();
+            break;
+
+        case 3:
+            clearInputBuffer();
+            printf("\n Brisanje narudzbe...\n");
+            obrisiNarudzbu();
+            printf("\n[Enter za nastavak]");
+            getchar();
+            break;
+
+        case 0:
+            printf("\nDovidjenja! \n");
+            break;
+
+        default:
+            printf(" Opcija '%d' ne postoji!\n", izbor);
+            printf("[Enter za nastavak]");
+            clearInputBuffer();
+            getchar();
+            break;
+        }
+    } while (izbor != 0);
 }
 
-const char* mapirajKategoriju(Kategorija kategorija) {
-    switch (kategorija) {
-    case KACIGA:
-        return "Kaciga";
-    case JAKNA:
-        return "Jakna";
-    case HLACE:
-        return "Hlace";
-    case RUKAVICE:
-        return "Rukavice";
-    default:
-        return "NaN";
-    }
+
+void upravljajKorisnicima(void) {
+    int izbor;
+    do {
+        printf("\n");
+        printf("---------------------------------------\n");
+        printf("        UPRAVLJANJE KORISNICIMA        \n");
+        printf("---------------------------------------\n");
+        printf("\n");
+        printf("  1 -> Dodaj Korisnika\n");
+        printf("  2 -> Ispisi Korisnike\n");
+        printf("  3 -> Obrisi Korisnika\n");
+        printf("\n");
+        printf("  0 -> Izlaz\n");
+        printf("\n");
+        printf("---------------------------------------\n");
+        printf("Izbor: ");
+
+        if (scanf("%d", &izbor) != 1) {
+            printf(" Neispravna opcija\n");
+            clearInputBuffer();
+            continue;
+        }
+
+        switch (izbor) {
+        case 1:
+            clearInputBuffer();
+            printf("\n Dodavanje korisnika...\n");
+            dodajKorisnika();
+            printf("\n[Enter za nastavak]");
+            getchar();
+            break;
+
+        case 2:
+            clearInputBuffer();
+            printf("\n Prikaz korisnika...\n");
+            ispisiSveKorisnike(false);
+            printf("\n[Enter za nastavak]");
+            getchar();
+            break;
+
+        case 3:
+            clearInputBuffer();
+            printf("\n Brisanje korisnika...\n");
+            obrisiKorisnika();
+            printf("\n[Enter za nastavak]");
+            getchar();
+            break;
+
+        case 0:
+            printf("\nDo vidjenja! \n");
+            break;
+
+        default:
+            printf(" Opcija '%d' ne postoji!\n", izbor);
+            printf("[Enter za nastavak]");
+            clearInputBuffer();
+            getchar();
+            break;
+        }
+    } while (izbor != 0);
+}
+
+void upravljajOpremom(void) {
+    int izbor;
+    do {
+        printf("\n");
+        printf("---------------------------------------\n");
+        printf("         UPRAVLJANJE OPREMOM          \n");
+        printf("---------------------------------------\n");
+        printf("\n");
+        printf("  1 -> Dodaj Opremu\n");
+        printf("  2 -> Ispisi Opremu\n");
+        printf("  3 -> Ispisi sortiranu Opremu po cijeni\n");
+        printf("  4 -> Pretrazi opremu po brendu\n");
+        printf("\n");
+        printf("  0 -> Izlaz\n");
+        printf("\n");
+        printf("---------------------------------------\n");
+        printf("Izbor: ");
+
+        if (scanf("%d", &izbor) != 1) {
+            printf(" Neispravna opcija\n");
+            clearInputBuffer();
+            continue;
+        }
+
+        switch (izbor) {
+        case 1:
+            clearInputBuffer();
+            printf("\n Dodavanje opreme...\n");
+            dodajOpremu();
+            printf("\n[Enter za nastavak]");
+            getchar();
+            break;
+
+        case 2:
+            clearInputBuffer();
+            printf("\n Prikaz opreme...\n");
+            ispisiSvuOpremu(false);
+            printf("\n[Enter za nastavak]");
+            getchar();
+            break;
+
+        case 3:
+            clearInputBuffer();
+            printf("\n Sortirana oprema po cijeni...\n");
+            sortirajOpremuPoCijeni();
+            printf("\n[Enter za nastavak]");
+            getchar();
+            break;
+        case 4:
+            clearInputBuffer();
+            pretraziOpremuPoBredu();
+            getchar();
+        case 0:
+            printf("\nDo vidjenja! \n");
+            break;
+
+        default:
+            printf(" Opcija '%d' ne postoji!\n", izbor);
+            printf("[Enter za nastavak]");
+            clearInputBuffer();
+            getchar();
+            break;
+        }
+    } while (izbor != 0);
+}
+
+int main(void) {
+    int izbor;
+    do {
+        printf("\n");
+        printf("---------------------------------------\n");
+        printf("         MOTO OPREMA IZBORNIK         \n");
+        printf("---------------------------------------\n");
+        printf("\n");
+        printf("  1 -> Upravljaj opremom\n");
+        printf("  2 -> Upravljaj narudzbama\n");
+        printf("  3 -> Upravljaj korisnicima\n");
+        printf("\n");
+        printf("  0 -> Izlaz\n");
+        printf("\n");
+        printf("---------------------------------------\n");
+        printf("Izbor: ");
+
+        if (scanf("%d", &izbor) != 1) {
+            printf(" Neispravna opcija\n");
+            clearInputBuffer();
+            continue;
+        }
+
+        clearInputBuffer();
+
+        switch (izbor) {
+        case 1:
+            printf("\n Prelazak na upravljanje opremom...\n");
+            upravljajOpremom();
+            break;
+
+        case 2:
+            printf("\n Prelazak na upravljanje narudzbama...\n");
+            upravljajNarduzbama();
+            break;
+
+        case 3:
+            printf("\n Prelazak na upravljanje korisnicima...\n");
+            upravljajKorisnicima();
+            break;
+
+        case 0:
+            printf("\n  Hvala sto ste koristili Moto Oprema sistem!\n");
+            printf("Do videnja! \n");
+            break;
+
+        default:
+            printf(" Opcija '%d' ne postoji!\n", izbor);
+            printf("Molimo odaberite opciju između 0 i 3.\n");
+            printf("[Enter za nastavak]");
+            getchar();
+            break;
+        }
+    } while (izbor != 0);
+
+    return 0;
 }
